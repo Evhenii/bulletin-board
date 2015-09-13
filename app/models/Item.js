@@ -9,7 +9,8 @@ module.exports = function (sequelize, DataTypes) {
     },
     user_id: DataTypes.INTEGER,
     title: DataTypes.STRING(50),
-    price: DataTypes.FLOAT(2)
+    price: DataTypes.FLOAT(2),
+    image: DataTypes.STRING
   }, {
     indexes: [
       {
