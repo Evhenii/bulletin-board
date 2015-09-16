@@ -18,13 +18,11 @@ router.post('/api/register', function (req, res, next) {
       name = req.param('name'),
       email = req.param('email'),
       password = req.param('password');
-  phone = phone.replace(/ /g, "");
-  phone = phone.replace(/-/g, "");
   db.User.create({
     phone: phone,
     name: name,
     email: email,
-    password: password,
+    password: md5(password + password),
     token: md5(email + password)
   })
     .then(function(user) {
@@ -34,8 +32,7 @@ router.post('/api/register', function (req, res, next) {
       if (err.name == 'SequelizeValidationError') {
         return res.status(422).json(rg(err));
       }
-      console.log(err);
-      return res.status(500).send("Server error");
+      next(err);
     });
 });
 
@@ -45,19 +42,18 @@ router.post('/api/login', function (req, res, next) {
   db.User.findOne({
     where: {
       email: email,
-      password: password
+      password: md5(password + password)
     }
   })
     .then(function(user) {
       if (user) {
         return res.status(200).json({token: user.dataValues.token});
       } else {
-        return res.status(422).json({"field":"password", "message":"Wrong email or password"});
+        return res.status(422).json([{"field":"password", "message":"Wrong email or password"}]);
       }
     })
     .catch(function(err) {
-      console.log(err);
-      return res.status(500).send("Server error");
+      next(err);
     });
 });
 
@@ -75,13 +71,11 @@ router.put('/api/me', isAuthorized, function (req, res, next) {
   var new_password = req.param('new_password'),
       current_password = req.param('current_password');
   if (current_password && !new_password) {
-    return res.status(422).json({"field":"new_password", "message":"New password is empty"})
+    return res.status(422).json([{"field":"new_password", "message":"New password is empty"}]);
   }
   attributes.email = req.param('email') || user.email;
   attributes.phone = req.param('phone') || user.phone;
   attributes.name = req.param('name') || user.name;
-  attributes.phone = attributes.phone.replace(/ /g, "");
-  attributes.phone = attributes.phone.replace(/-/g, "");
   if (new_password) {
     attributes.password = new_password;
     where.password = current_password;
@@ -93,15 +87,14 @@ router.put('/api/me', isAuthorized, function (req, res, next) {
         attributes.id = user.id;
         return res.status(200).json(attributes);
       } else {
-        return res.status(422).json({"field":"current_password", "message":"Wrong current password"})
+        return res.status(422).json([{"field":"current_password", "message":"Wrong current password"}]);
       }
     })
     .catch(function(err) {
       if (err.name == 'SequelizeValidationError') {
         return res.status(422).json(rg(err));
       }
-      console.log(err);
-      return res.status(500).send("Server error");
+      next(err);
     });
 });
 
@@ -109,7 +102,7 @@ router.get('/api/user', function (req, res, next) {
   var name = req.param('name'),
       email = req.param('email');
   if (!name && !email) {
-    return res.status(422).json({"field":"email", "message":"Input params are empty"});
+    return res.status(422).json([{"field":"email", "message":"Input params are empty"}]);
   }
   db.User.find({
     where: {
@@ -124,15 +117,17 @@ router.get('/api/user', function (req, res, next) {
     },
     attributes: ['id', 'name', 'phone', 'email']
   })
-    .then(function(user) {
-      if (user) {
-        return res.status(200).json(user.dataValues);
-      } else {
+    .then(function(users) {
+      if (!users) {
         return res.status(404).send();
       }
+      var result = [];
+      users.forEach(function(user) {
+        result.push(user.dataValues);
+      });
+      return res.status(200).json(result);
     })
     .catch(function(err) {
-      console.log(err);
-      return res.status(500).send("Server error");
+      next(err);
     })
 });
